@@ -60,9 +60,9 @@ img_width, img_height = 150, 150
 
 train_data_dir = 'data/symlinks/train'
 validation_data_dir = 'data/symlinks/validation'
-nb_train_samples = 20000
-nb_validation_samples = 5000
-nb_epoch = 5
+nb_train_samples = 1000
+nb_validation_samples = 500
+nb_epoch = 2
 
 
 model = Sequential()
@@ -130,11 +130,11 @@ validation_generator = test_datagen.flow_from_directory(
         follow_links=True)
 
 test_generator = test_datagen.flow_from_directory(
-        TEST_DIR,
+        'data/',
+        classes = ['test'],
         target_size=(img_width, img_height),
         batch_size=32,
-        class_mode='binary',
-        follow_links=True)
+        class_mode=None)
 
 model.fit_generator(
         train_generator,
@@ -142,15 +142,13 @@ model.fit_generator(
         nb_epoch=nb_epoch,
         validation_data=validation_generator,
         nb_val_samples=nb_validation_samples,
-        nb_worker=4,
         callbacks=[history, early_stopping])
 
 model.save_weights('first_try.h5')
 
-# predictions =  model.predict_generator(
-#          test_generator,
-#          val_samples=len(test_images),
-#          nb_worker=4)
+predictions = model.predict_generator(
+         test_generator,
+         val_samples=128)
 
 loss = history.losses
 val_loss = history.val_losses
@@ -162,4 +160,7 @@ plt.plot(loss, 'blue', label='Training Loss')
 plt.plot(val_loss, 'green', label='Validation Loss')
 plt.xticks(range(0,nb_epoch)[0::2])
 plt.legend()
+
+print(predictions)
+
 plt.show()
