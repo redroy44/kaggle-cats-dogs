@@ -49,43 +49,49 @@ from matplotlib import ticker
 import seaborn as sns
 
 from keras.preprocessing.image import ImageDataGenerator
-from keras.models import Sequential
+from keras.models import Sequential, Model
 from keras.layers import Convolution2D, MaxPooling2D
 from keras.layers import Activation, Dropout, Flatten, Dense
 from keras.callbacks import ModelCheckpoint, Callback, EarlyStopping
 
+from keras.applications.vgg16 import VGG16
+from keras.preprocessing import image
+from keras.applications.vgg16 import preprocess_input
+import numpy as np
 
 # dimensions of our images.
-img_width, img_height = 150, 150
+img_width, img_height = 64, 64
 
 train_data_dir = 'data/symlinks/train'
 validation_data_dir = 'data/symlinks/validation'
 nb_train_samples = 20000
 nb_validation_samples = 5000
-nb_epoch = 20
+nb_epoch = 50
 
-model = Sequential()
-model.add(Convolution2D(32, 3, 3, input_shape=(img_width, img_height, 3)))
-model.add(Activation('relu'))
-model.add(MaxPooling2D(pool_size=(2, 2)))
+base_model = VGG16(weights='imagenet', include_top=False, input_shape=(img_width, img_height, 3))
 
-model.add(Convolution2D(32, 3, 3))
-model.add(Activation('relu'))
-model.add(MaxPooling2D(pool_size=(2, 2)))
+x = base_model.output
+x = Flatten()(x)
+# let's add a fully-connected layer
+#x = Dense(1024, activation='relu')(x)
+#Dropout(0.5)(x)
+x = Dense(256, activation='relu')(x)
+Dropout(0.5)(x)
+# and a logistic layer -- let's say we have 200 classes
+predictions = Dense(1, activation='sigmoid')(x)
 
-model.add(Convolution2D(64, 3, 3))
-model.add(Activation('relu'))
-model.add(MaxPooling2D(pool_size=(2, 2)))
+model = Model(input=base_model.input, output=predictions)
 
-model.add(Flatten())
-model.add(Dense(64))
-model.add(Activation('relu'))
-model.add(Dropout(0.5))
-model.add(Dense(1))
-model.add(Activation('sigmoid'))
+# first: train only the top layers (which were randomly initialized)
+# i.e. freeze all convolutional InceptionV3 layers
+for layer in base_model.layers:
+    layer.trainable = False
 
-# Load the model
-# model.load_weights('first_try.h5')
+print(model.summary())
+
+# Load the model checkpoint
+if os.path.exists('checkpoint.h5'):
+    model.load_weights('checkpoint.h5')
 
 ## Callback for loss logging per epoch
 class LossHistory(Callback):
@@ -97,14 +103,14 @@ class LossHistory(Callback):
         self.losses.append(logs.get('loss'))
         self.val_losses.append(logs.get('val_loss'))
 
+checkpoint = ModelCheckpoint('checkpoint.hd5', monitor='val_loss', verbose=0, save_best_only=True, save_weights_only=True, period=1)
 early_stopping = EarlyStopping(monitor='val_loss', patience=5, verbose=1, mode='auto')
 history = LossHistory()
 
 model.compile(loss='binary_crossentropy',
               optimizer='rmsprop',
               metrics=['accuracy'],
-              verbose=1,
-              shuffle=True)
+              verbose=1)
 
 # this is the augmentation configuration we will use for training
 train_datagen = ImageDataGenerator(
@@ -125,7 +131,8 @@ train_generator = train_datagen.flow_from_directory(
         target_size=(img_width, img_height),
         batch_size=32,
         class_mode='binary',
-        follow_links=True)
+        follow_links=True,
+        shuffle=True)
 
 validation_generator = test_datagen.flow_from_directory(
         validation_data_dir,
@@ -141,9 +148,9 @@ model.fit_generator(
         validation_data=validation_generator,
         verbose=1,
         nb_val_samples=nb_validation_samples,
-        callbacks=[history])
+        callbacks=[history, checkpoint])
 
-model.save_weights('first_try.h5')
+model.save_weights('vgg16_1.h5')
 
 loss = history.losses
 val_loss = history.val_losses
