@@ -60,7 +60,7 @@ from keras.applications.vgg16 import preprocess_input
 import numpy as np
 
 # dimensions of our images.
-img_width, img_height = 64, 64
+img_width, img_height = 128, 128
 
 train_data_dir = 'data/symlinks/train'
 validation_data_dir = 'data/symlinks/validation'
@@ -114,16 +114,17 @@ model.compile(loss='binary_crossentropy',
 
 # this is the augmentation configuration we will use for training
 train_datagen = ImageDataGenerator(
-        samplewise_center=True,
+        #samplewise_center=True,
         rescale=1./255,
-        shear_range=0.2,
-        zoom_range=0.2,
-        horizontal_flip=True)
+        #shear_range=0.2,
+        #zoom_range=0.2,
+        #horizontal_flip=True
+        )
 
 # this is the augmentation configuration we will use for testing:
 # only rescaling
 test_datagen = ImageDataGenerator(
-        samplewise_center=True,
+        #samplewise_center=True,
         rescale=1./255)
 
 train_generator = train_datagen.flow_from_directory(
